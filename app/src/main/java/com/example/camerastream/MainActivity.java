@@ -35,6 +35,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private Button copyUrlButton;
     private int port = DEFAULT_PORT;
 
+    static String url;
+
     private String[] REQUIRED_PERMISSIONS = new String[]{
             Manifest.permission.CAMERA,
             Manifest.permission.INTERNET,
@@ -112,8 +114,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         String ipAddress = getLocalIpAddress();
         if (ipAddress != null) {
-            String url = "http://" + ipAddress + ":" + port;
-            urlTextView.setText("Stream URL: " + url);
+            url = "http://" + ipAddress + ":" + port;
+            urlTextView.setText("🔗 En tu navegador, introduce:\n" + url);
         }
     }
 
@@ -134,20 +136,34 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         return null;
     }
 
+
     private void changePort() {
-        // Logic to change the port (e.g., show a dialog to input a new port)
-        // For simplicity, we'll just increment the port number here
+        // Incrementar el puerto
         port++;
+        
+        // Detener el servidor si está en ejecución
         if (server != null) {
             server.stop();
+            server = null;
         }
+        
+        // Reiniciar la cámara
+        if (camera != null) {
+            camera.stopPreview();
+            camera.release();
+            camera = null;
+        }
+        
+        // Reiniciar el streaming
         startStreaming();
     }
 
     private void copyUrlToClipboard() {
-        String url = urlTextView.getText().toString();
+
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText(url);
+        // Crear un objeto ClipData con el texto a copiar
+        ClipData clip = ClipData.newPlainText("URL", url); // Siempre tendrá el valor ya que esto es pos inicialización
+        // Copiar el texto al portapapeles
         clipboard.setPrimaryClip(clip);
         Toast.makeText(this, "URL copiada al portapapeles", Toast.LENGTH_SHORT).show();
     }
