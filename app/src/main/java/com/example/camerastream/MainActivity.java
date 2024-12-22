@@ -1,11 +1,16 @@
 package com.example.camerastream;
 
 import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -19,13 +24,16 @@ import java.util.List;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
-    private static final int PORT = 7373;
+    private static final int DEFAULT_PORT = 7373;
     private static final int PERMISSION_REQUEST_CODE = 100;
     private MjpegServer server;
     private Camera camera;
     private TextView urlTextView;
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
+    private Button changePortButton;
+    private Button copyUrlButton;
+    private int port = DEFAULT_PORT;
 
     private String[] REQUIRED_PERMISSIONS = new String[]{
             Manifest.permission.CAMERA,
@@ -33,7 +41,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             Manifest.permission.ACCESS_NETWORK_STATE,
             Manifest.permission.ACCESS_WIFI_STATE
     };
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,6 +51,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
+
+        changePortButton = findViewById(R.id.changePortButton);
+        copyUrlButton = findViewById(R.id.copyUrlButton);
+
+        changePortButton.setOnClickListener(v -> changePort());
+        copyUrlButton.setOnClickListener(v -> copyUrlToClipboard());
+
+        surfaceView.setOnTouchListener((v, event) -> {
+            if (camera != null) {
+                camera.autoFocus(null);
+            }
+            return false;
+        });
 
         if (allPermissionsGranted()) {
             startStreaming();
@@ -65,18 +85,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, PERMISSION_REQUEST_CODE);
     }
 
-
-    private boolean checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA},
-                    PERMISSION_REQUEST_CODE);
-            return false;
-        }
-        return true;
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -93,19 +101,18 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 startStreaming();
             } else {
                 Toast.makeText(this, "Permissions are required for the app to work", Toast.LENGTH_LONG).show();
-                // Opcionalmente, puedes cerrar la app si los permisos son necesarios
-                // finish();
             }
         }
     }
+
     private void startStreaming() {
         camera = Camera.open();
-        server = new MjpegServer(PORT, camera);
+        server = new MjpegServer(port, camera);
         server.start();
 
         String ipAddress = getLocalIpAddress();
         if (ipAddress != null) {
-            String url = "http://" + ipAddress + ":" + PORT;
+            String url = "http://" + ipAddress + ":" + port;
             urlTextView.setText("Stream URL: " + url);
         }
     }
@@ -125,6 +132,24 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             e.printStackTrace();
         }
         return null;
+    }
+
+    private void changePort() {
+        // Logic to change the port (e.g., show a dialog to input a new port)
+        // For simplicity, we'll just increment the port number here
+        port++;
+        if (server != null) {
+            server.stop();
+        }
+        startStreaming();
+    }
+
+    private void copyUrlToClipboard() {
+        String url = urlTextView.getText().toString();
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText(url);
+        clipboard.setPrimaryClip(clip);
+        Toast.makeText(this, "URL copiada al portapapeles", Toast.LENGTH_SHORT).show();
     }
 
     @Override
